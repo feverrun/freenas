@@ -7,10 +7,7 @@ from middlewared.utils import run
 RE_VENDOR = re.compile(r'description:\s*VGA compatible controller[\s\S]*vendor:\s*(.*)')
 
 
-class HardwareService(Service):
-
-    class Config:
-        private = True
+class DeviceService(Service):
 
     GPU = None
 
