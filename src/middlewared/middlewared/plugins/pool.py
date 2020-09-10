@@ -29,7 +29,7 @@ from middlewared.service import (
 )
 from middlewared.service_exception import ValidationError
 import middlewared.sqlalchemy as sa
-from middlewared.utils import osc, Popen, filter_list, run, start_daemon_thread
+from middlewared.utils import osc, Popen, filter_list, run, start_daemon_thread, middleware_pid
 from middlewared.utils.asyncio_ import asyncio_map
 from middlewared.utils.path import is_child
 from middlewared.utils.shell import join_commandline
@@ -3726,6 +3726,8 @@ class PoolDatasetService(CRUDService):
     async def kill_processes(self, oid, control_services, max_tries=5):
         need_restart_services = []
         need_stop_services = []
+        mid_procs = []
+        mid_procs.append(middleware_pid())
         for process in await self.middleware.call('pool.dataset.processes', oid):
             service = process.get('service')
             if service is not None:
@@ -3746,7 +3748,13 @@ class PoolDatasetService(CRUDService):
             if not processes:
                 return
 
+            mid_procs.extend([x.pid for x in psutil.Process(middleware_pid()).children()])
             for process in processes:
+                if process["pid"] in mid_procs:
+                    self.logger.warning("Middleware process %r (%r) currently is holding dataset %r",
+                                        process['pid'], process['cmdline'], oid)
+                    continue
+
                 service = process.get('service')
                 if service is not None:
                     if any(attachment_delegate.service == service for attachment_delegate in self.attachment_delegates):
